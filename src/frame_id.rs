@@ -13,15 +13,30 @@ impl FrameId {
 }
 
 impl TryFrom<u32> for FrameId {
-    type Error = &'static str;
+    type Error = FrameIdError;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         if value & Self::INVALID_BIT_MASK != 0 {
-            Err("Input value too high or trailing EFF flag")
+            Err(FrameIdError::OutOfRange)
         } else {
-            Ok(FrameId{id: value})
+            Ok(FrameId { id: value })
         }
     }
+}
+
+#[derive(Copy, Clone)]
+pub enum FrameFormat {
+    StandardCan,
+    StandardCanFd,
+    ExtendedCan,
+    ExtendedCanFd,
+    J1939,
+    CANopen,
+}
+
+#[derive(Eq, PartialEq, Debug)]
+pub enum FrameIdError {
+    OutOfRange,
 }
 
 #[cfg(test)]
@@ -37,5 +52,24 @@ mod tests {
     fn frame_id_is_valid() {
         let result = FrameId::try_from(0x1FFF_FFFF);
         assert!(result.is_ok());
+    }
+    #[test]
+    fn frame_id_validation() {
+        let cases = [
+            (0x0000_0000, true),
+            (0x1FFF_FFFF, true),
+            (0x2000_0000, false),
+            (0x8000_0000, false),
+        ];
+
+        for (value, expected_valid) in cases {
+            let result = FrameId::try_from(value);
+
+            assert_eq!(
+                result.is_ok(),
+                expected_valid,
+                "failed for value {value:#010X}"
+            );
+        }
     }
 }
