@@ -1,6 +1,6 @@
 use crate::{
     frame_id::{FrameFormat, FrameId, FrameIdError},
-    node::{Node, NodeError, NodeId},
+    node::NodeId,
 };
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
@@ -67,6 +67,7 @@ impl Message {
             }
             _ => {}
         }
+        self.frame_id = f_id;
         Ok(())
     }
     pub fn frame_id(&self) -> &FrameId {
@@ -83,6 +84,7 @@ impl Message {
         if length > max_length {
             return Err(MessageError::PayloadTooLong);
         }
+        self.payload_length = length;
         Ok(())
     }
     pub fn payload_length(&self) -> u8 {
@@ -144,7 +146,6 @@ impl Message {
 #[derive(Eq, PartialEq, Debug)]
 pub enum MessageError {
     InvalidFrameId(FrameIdError),
-    InvalidNode(NodeError),
     FrameTooLargeForFormat,
     PayloadTooLong,
 }
@@ -152,12 +153,6 @@ pub enum MessageError {
 impl From<FrameIdError> for MessageError {
     fn from(error: FrameIdError) -> Self {
         MessageError::InvalidFrameId(error)
-    }
-}
-
-impl From<NodeError> for MessageError {
-    fn from(error: NodeError) -> Self {
-        MessageError::InvalidNode(error)
     }
 }
 
