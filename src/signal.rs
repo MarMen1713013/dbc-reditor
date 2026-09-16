@@ -50,6 +50,11 @@ impl SignalId {
         Self { id: input }
     }
 }
+impl From<u64> for SignalId {
+    fn from(input: u64) -> SignalId {
+        SignalId::new(input)
+    }
+}
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct SignalMultiplexer {

@@ -14,6 +14,12 @@ impl MessageId {
     }
 }
 
+impl From<u64> for MessageId {
+    fn from(input: u64) -> MessageId {
+        MessageId::new(input)
+    }
+}
+
 pub struct Message {
     frame_id: FrameId,
     frame_format: FrameFormat,
