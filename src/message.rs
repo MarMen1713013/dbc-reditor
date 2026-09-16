@@ -1,6 +1,7 @@
 use crate::{
     frame_id::{FrameFormat, FrameId, FrameIdError},
     node::NodeId,
+    signal::SignalId
 };
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
@@ -26,6 +27,7 @@ pub struct Message {
     name: String,
     payload_length: u8,
     sender: Option<NodeId>,
+    signals: Vec<SignalId>,
 }
 
 impl Message {
@@ -50,6 +52,7 @@ impl Message {
             name: String::from(name),
             payload_length: length,
             sender: sender,
+            signals: Vec::new(),
         })
     }
     pub(crate) fn set_frame_id(&mut self, f_id: FrameId) -> Result<(), MessageError> {
@@ -138,6 +141,21 @@ impl Message {
         }
         true
     }
+    pub(crate) fn add_signal_id(&mut self, id: SignalId) -> Result<(), MessageError> {
+        if self.signals.contains(&id) {
+            return Err(MessageError::SignalAlreadyPresent(id));
+        }
+        self.signals.push(id);
+        Ok(())
+    }
+    pub(crate) fn remove_signal_id(&mut self, id: SignalId) -> Result<(), MessageError> {
+        if let Some(pos) = self.signals.iter().position(|s_id| *s_id == id) {
+            self.signals.remove(pos);
+            Ok(())
+        } else {
+            Err(MessageError::NoSignalWithGivenId(id))
+        }
+    }
 }
 
 #[derive(Eq, PartialEq, Debug)]
@@ -145,6 +163,8 @@ pub enum MessageError {
     InvalidFrameId(FrameIdError),
     FrameTooLargeForFormat,
     PayloadTooLong,
+    SignalAlreadyPresent(SignalId),
+    NoSignalWithGivenId(SignalId),
 }
 
 impl From<FrameIdError> for MessageError {

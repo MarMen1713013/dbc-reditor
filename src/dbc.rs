@@ -10,6 +10,8 @@ pub struct Dbc {
     next_node_id: u64,
     messages: HashMap<MessageId, Message>,
     next_msg_id: u64,
+    signals: HashMap<SignalId, Signal>,
+    next_signal_id: u64,
 }
 
 impl Dbc {
@@ -17,8 +19,10 @@ impl Dbc {
         Self {
             next_msg_id: 0,
             next_node_id: 0,
+            next_signal_id: 0,
             nodes: HashMap::new(),
             messages: HashMap::new(),
+            signals: HashMap::new(),
         }
     }
     pub fn add_node(&mut self, node: Node) -> NodeId {
