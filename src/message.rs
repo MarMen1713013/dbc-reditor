@@ -32,22 +32,10 @@ impl Message {
         sender: Option<NodeId>,
     ) -> Result<Self, MessageError> {
         let f = FrameId::try_from(frame_id)?;
-        match &frame_format {
-            FrameFormat::CANopen | FrameFormat::StandardCan | FrameFormat::StandardCanFd => {
-                if f.get_id() > Self::MAX_STANDARD_FRAME_ID {
-                    return Err(MessageError::FrameTooLargeForFormat);
-                }
-            }
-            _ => {}
+        if !Self::validate_frame_id(&f, frame_format) {
+            return Err(MessageError::FrameTooLargeForFormat);
         }
-        let mut max_length = 8;
-        match &frame_format {
-            FrameFormat::StandardCanFd | FrameFormat::ExtendedCanFd => {
-                max_length = 64;
-            }
-            _ => {}
-        }
-        if length > max_length {
+        if !Self::validate_payload_length(length, frame_format) {
             return Err(MessageError::PayloadTooLong);
         }
         Ok(Self {
@@ -59,13 +47,8 @@ impl Message {
         })
     }
     pub(crate) fn set_frame_id(&mut self, f_id: FrameId) -> Result<(), MessageError> {
-        match &self.frame_format {
-            FrameFormat::CANopen | FrameFormat::StandardCan | FrameFormat::StandardCanFd => {
-                if f_id.get_id() > Self::MAX_STANDARD_FRAME_ID {
-                    return Err(MessageError::FrameTooLargeForFormat);
-                }
-            }
-            _ => {}
+        if !Self::validate_frame_id(&f_id, self.frame_format) {
+            return Err(MessageError::FrameTooLargeForFormat);
         }
         self.frame_id = f_id;
         Ok(())
@@ -74,14 +57,7 @@ impl Message {
         &self.frame_id
     }
     pub(crate) fn set_payload_length(&mut self, length: u8) -> Result<(), MessageError> {
-        let mut max_length = 8;
-        match &self.frame_format {
-            FrameFormat::StandardCanFd | FrameFormat::ExtendedCanFd => {
-                max_length = 64;
-            }
-            _ => {}
-        }
-        if length > max_length {
+        if !Self::validate_payload_length(length, self.frame_format) {
             return Err(MessageError::PayloadTooLong);
         }
         self.payload_length = length;
@@ -90,24 +66,15 @@ impl Message {
     pub fn payload_length(&self) -> u8 {
         self.payload_length
     }
-    pub(crate) fn set_frame_format(&mut self, frame_format: FrameFormat) -> Result<(), MessageError> {
-        let mut max_length = 8;
-        match &frame_format {
-            FrameFormat::StandardCanFd | FrameFormat::ExtendedCanFd => {
-                max_length = 64;
-            }
-            _ => {}
-        }
-        if self.payload_length() > max_length {
+    pub(crate) fn set_frame_format(
+        &mut self,
+        frame_format: FrameFormat,
+    ) -> Result<(), MessageError> {
+        if !Self::validate_payload_length(self.payload_length, frame_format) {
             return Err(MessageError::PayloadTooLong);
         }
-        match &frame_format {
-            FrameFormat::CANopen | FrameFormat::StandardCan | FrameFormat::StandardCanFd => {
-                if self.frame_id().get_id() > Self::MAX_STANDARD_FRAME_ID {
-                    return Err(MessageError::FrameTooLargeForFormat);
-                }
-            }
-            _ => {}
+        if !Self::validate_frame_id(self.frame_id(), frame_format) {
+            return Err(MessageError::FrameTooLargeForFormat);
         }
         self.frame_format = frame_format;
         Ok(())
@@ -140,6 +107,30 @@ impl Message {
             }
         }
         Ok(())
+    }
+    fn validate_frame_id(f_id: &FrameId, f_format: FrameFormat) -> bool {
+        match f_format {
+            FrameFormat::CANopen | FrameFormat::StandardCan | FrameFormat::StandardCanFd => {
+                if f_id.get_id() > Self::MAX_STANDARD_FRAME_ID {
+                    return false;
+                }
+            }
+            _ => {}
+        }
+        true
+    }
+    fn validate_payload_length(len: u8, f_format: FrameFormat) -> bool {
+        let mut max_length = 8;
+        match f_format {
+            FrameFormat::StandardCanFd | FrameFormat::ExtendedCanFd => {
+                max_length = 64;
+            }
+            _ => {}
+        }
+        if len > max_length {
+            return false;
+        }
+        true
     }
 }
 
@@ -195,5 +186,87 @@ mod tests {
 
             assert_eq!(result.is_ok(), expected, "frame_id={f_id:#X}, length={len}");
         }
+    }
+    #[test]
+    fn frame_id_valid_updates() {
+        let mut msg = Message::new("Test", 0x100, FrameFormat::StandardCan, 4, None).unwrap();
+
+        let result = msg.apply_command(MessageCommand::SetFrameId(
+            FrameId::try_from(0x200).unwrap(),
+        ));
+
+        assert!(result.is_ok());
+        assert_eq!(msg.frame_id().get_id(), 0x200);
+    }
+    #[test]
+    fn frame_id_invalid_preserves() {
+        let mut msg = Message::new("Test", 0x100, FrameFormat::StandardCan, 4, None).unwrap();
+
+        let result = msg.apply_command(MessageCommand::SetFrameId(
+            FrameId::try_from(0x800).unwrap(),
+        ));
+
+        assert!(result.is_err());
+        assert_eq!(msg.frame_id().get_id(), 0x100);
+    }
+
+    #[test]
+    fn payload_valid_updates() {
+        let mut msg = Message::new("Test", 0x100, FrameFormat::StandardCan, 4, None).unwrap();
+
+        let result = msg.apply_command(MessageCommand::SetPayloadLength(8));
+
+        assert!(result.is_ok());
+        assert_eq!(msg.payload_length(), 8);
+    }
+
+    #[test]
+    fn payload_invalid_preserves() {
+        let mut msg = Message::new("Test", 0x100, FrameFormat::StandardCan, 4, None).unwrap();
+
+        let result = msg.apply_command(MessageCommand::SetPayloadLength(9));
+
+        assert!(result.is_err());
+        assert_eq!(msg.payload_length(), 4);
+    }
+
+    #[test]
+    fn frame_format_valid_updates() {
+        let mut msg = Message::new("Test", 0x100, FrameFormat::StandardCan, 4, None).unwrap();
+
+        let result = msg.apply_command(MessageCommand::SetFrameFormat(FrameFormat::ExtendedCan));
+
+        assert!(result.is_ok());
+        assert_eq!(msg.frame_format(), FrameFormat::ExtendedCan);
+    }
+
+    #[test]
+    fn frame_format_invalid_id_preserves() {
+        let mut msg = Message::new("Test", 0x1000, FrameFormat::ExtendedCan, 4, None).unwrap();
+
+        let result = msg.apply_command(MessageCommand::SetFrameFormat(FrameFormat::StandardCan));
+
+        assert!(result.is_err());
+        assert_eq!(msg.frame_format(), FrameFormat::ExtendedCan);
+    }
+
+    #[test]
+    fn frame_format_invalid_payload_preserves() {
+        let mut msg = Message::new("Test", 0x100, FrameFormat::ExtendedCanFd, 32, None).unwrap();
+
+        let result = msg.apply_command(MessageCommand::SetFrameFormat(FrameFormat::ExtendedCan));
+
+        assert!(result.is_err());
+        assert_eq!(msg.frame_format(), FrameFormat::ExtendedCanFd);
+    }
+
+    #[test]
+    fn rename_updates_name() {
+        let mut msg = Message::new("Old", 0x100, FrameFormat::StandardCan, 4, None).unwrap();
+
+        let result = msg.apply_command(MessageCommand::Rename(String::from("New")));
+
+        assert!(result.is_ok());
+        assert_eq!(msg.name(), "New");
     }
 }
