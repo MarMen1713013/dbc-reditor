@@ -4,8 +4,8 @@ pub struct NodeId {
 }
 
 impl NodeId {
-    pub(crate) fn new(input: u64) -> Self{
-        Self {id: input}
+    pub(crate) fn new(input: u64) -> Self {
+        Self { id: input }
     }
 }
 
@@ -14,16 +14,28 @@ pub struct Node {
 }
 
 impl Node {
-    fn new(name: &str) -> Self{
+    pub(crate) fn new(name: &str) -> Self {
         Self {
             name: String::from(name),
         }
     }
-    fn name(&self) -> &str {
+    pub fn name(&self) -> &str {
         &self.name
+    }
+    pub(crate) fn apply_command(&mut self, cmd: NodeCommand) -> Result<(), NodeError> {
+        match cmd {
+            NodeCommand::Rename(new_name) => {
+                self.name = new_name;
+            }
+        }
+        Ok(())
     }
 }
 
 #[derive(Eq, PartialEq, Debug)]
-pub enum NodeError {
+pub enum NodeError {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum NodeCommand {
+    Rename(String),
 }

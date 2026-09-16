@@ -1,3 +1,4 @@
+#[derive(Debug, Clone, PartialEq)]
 pub struct FrameId {
     id: u32,
 }
@@ -24,7 +25,7 @@ impl TryFrom<u32> for FrameId {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum FrameFormat {
     StandardCan,
     StandardCanFd,
