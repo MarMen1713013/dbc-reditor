@@ -58,11 +58,86 @@ impl Message {
             sender: sender,
         })
     }
+    pub(crate) fn set_frame_id(&mut self, f_id: FrameId) -> Result<(), MessageError> {
+        match &self.frame_format {
+            FrameFormat::CANopen | FrameFormat::StandardCan | FrameFormat::StandardCanFd => {
+                if f_id.get_id() > Self::MAX_STANDARD_FRAME_ID {
+                    return Err(MessageError::FrameTooLargeForFormat);
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+    pub fn frame_id(&self) -> &FrameId {
+        &self.frame_id
+    }
+    pub(crate) fn set_payload_length(&mut self, length: u8) -> Result<(), MessageError> {
+        let mut max_length = 8;
+        match &self.frame_format {
+            FrameFormat::StandardCanFd | FrameFormat::ExtendedCanFd => {
+                max_length = 64;
+            }
+            _ => {}
+        }
+        if length > max_length {
+            return Err(MessageError::PayloadTooLong);
+        }
+        Ok(())
+    }
+    pub fn payload_length(&self) -> u8 {
+        self.payload_length
+    }
+    pub(crate) fn set_frame_format(&mut self, frame_format: FrameFormat) -> Result<(), MessageError> {
+        let mut max_length = 8;
+        match &frame_format {
+            FrameFormat::StandardCanFd | FrameFormat::ExtendedCanFd => {
+                max_length = 64;
+            }
+            _ => {}
+        }
+        if self.payload_length() > max_length {
+            return Err(MessageError::PayloadTooLong);
+        }
+        match &frame_format {
+            FrameFormat::CANopen | FrameFormat::StandardCan | FrameFormat::StandardCanFd => {
+                if self.frame_id().get_id() > Self::MAX_STANDARD_FRAME_ID {
+                    return Err(MessageError::FrameTooLargeForFormat);
+                }
+            }
+            _ => {}
+        }
+        self.frame_format = frame_format;
+        Ok(())
+    }
+    pub fn frame_format(&self) -> FrameFormat {
+        self.frame_format
+    }
     pub fn name(&self) -> &str {
         &self.name
     }
     pub fn sender(&self) -> Option<NodeId> {
         self.sender
+    }
+    pub(crate) fn apply_command(&mut self, cmd: MessageCommand) -> Result<(), MessageError> {
+        match cmd {
+            MessageCommand::Rename(new_name) => {
+                self.name = new_name;
+            }
+            MessageCommand::SetFrameId(new_frame_id) => {
+                self.set_frame_id(new_frame_id)?;
+            }
+            MessageCommand::SetFrameFormat(new_frame_format) => {
+                self.set_frame_format(new_frame_format)?;
+            }
+            MessageCommand::SetPayloadLength(new_length) => {
+                self.set_payload_length(new_length)?;
+            }
+            MessageCommand::SetSender(new_sender) => {
+                self.sender = new_sender;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -84,6 +159,15 @@ impl From<NodeError> for MessageError {
     fn from(error: NodeError) -> Self {
         MessageError::InvalidNode(error)
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MessageCommand {
+    Rename(String),
+    SetFrameId(FrameId),
+    SetFrameFormat(FrameFormat),
+    SetPayloadLength(u8),
+    SetSender(Option<NodeId>),
 }
 
 #[cfg(test)]
