@@ -1,7 +1,7 @@
 use crate::{
     frame_id::{FrameFormat, FrameId, FrameIdError},
     node::NodeId,
-    signal::SignalId
+    signal::SignalId,
 };
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
@@ -21,6 +21,7 @@ impl From<u64> for MessageId {
     }
 }
 
+#[derive(Clone)]
 pub struct Message {
     frame_id: FrameId,
     frame_format: FrameFormat,

@@ -15,6 +15,7 @@ impl From<u64> for NodeId {
     }
 }
 
+#[derive(Clone)]
 pub struct Node {
     name: String,
 }

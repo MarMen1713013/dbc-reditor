@@ -25,7 +25,13 @@ impl TryFrom<u32> for FrameId {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+pub enum FrameClass {
+    Standard,
+    Extended,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum FrameFormat {
     StandardCan,
     StandardCanFd,
@@ -33,6 +39,16 @@ pub enum FrameFormat {
     ExtendedCanFd,
     J1939,
     CANopen,
+}
+
+impl FrameFormat {
+    pub fn class(&self) -> FrameClass {
+        match self {
+            Self::StandardCan | Self::StandardCanFd | Self::CANopen => FrameClass::Standard,
+
+            Self::ExtendedCan | Self::ExtendedCanFd | Self::J1939 => FrameClass::Extended,
+        }
+    }
 }
 
 #[derive(Eq, PartialEq, Debug)]
