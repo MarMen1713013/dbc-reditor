@@ -9,6 +9,13 @@ impl NodeId {
     }
 }
 
+impl From<u64> for NodeId {
+    fn from(input: u64) -> NodeId {
+        NodeId::new(input)
+    }
+}
+
+#[derive(Clone)]
 pub struct Node {
     name: String,
 }
